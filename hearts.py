@@ -230,9 +230,11 @@ class Main(pyglet.window.Window):
         if symbol == key.PLUS or symbol == key.EQUAL:
             self.game.start(min(self.game.level + 1, 4))
             self.high_score.mode = self.game.mode
+            self.high_score.generate_scores()
         if symbol == key.MINUS:
             self.game.start(max(self.game.level - 1, 0))
             self.high_score.mode = self.game.mode
+            self.high_score.generate_scores()
         if symbol == key.ASCIITILDE:
             self.game.hearts = []
         if symbol == key.F:
