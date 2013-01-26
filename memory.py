@@ -45,34 +45,128 @@ def gl_matrix():
 
 class Heart(object):
 
-    def __init__(self):
-        self.sprite = pyglet.sprite.Sprite(load_image('MessageHeart.png'))
+    images = [load_image('MessageHeart.png'),
+              load_image('BlueMessageHeart.png'),
+              load_image('GreenMessageHeart.png'),
+              load_image('YellowMessageHeart.png')]
+    pxWidth = 64
+    pxHeight = 64
+    pxPadding = 10
+
+    totalWidth = pxWidth + pxPadding
+    totalHeight = pxHeight + pxPadding
+
+    def pickHeart(self, n):
+        self.n = n
+        size_count = len(self.sizes)
+        self.beat = self.sizes[n % size_count]
+
+        remainder = n / size_count
+        shift_count = len(self.shifts)
+        self.shift = self.shifts[remainder % shift_count]
+
+        remainder = remainder / shift_count
+        self.image = self.images[remainder]
+
+    def __init__(self, mapX, mapY, n):
+        self.mapX = mapX
+        self.mapY = mapY
+        self.pickHeart(n)
+        self.sprite = pyglet.sprite.Sprite(self.image)
         self.sprite.image.anchor_x = self.sprite.image.width // 2
         self.sprite.image.anchor_y = self.sprite.image.height // 2
+        self.total_time = 0
+        self.total_time += self.shift
+        self.selected = False
 
     def draw(self):
-        self.sprite.x = window.width // 2
-        self.sprite.y = window.height // 2
+        self.sprite.x = self.totalWidth * self.mapX
+        self.sprite.y = self.totalHeight * self.mapY
         self.sprite.draw()
+
+    sizes = ([0.8, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8, 0.9, 1.0, 0.9],
+             [0.8, 0.8, 0.8, 0.8, 0.9, 1.0, 0.9, 0.8, 0.8, 0.8, 0.8, 0.9, 1.0, 0.9])
+    shifts = [0.0, 0.25, 0.5, 0.75]
+    seconds = 2.0
+
+    def update(self, dt):
+        self.total_time += dt
+        cycle = (self.total_time % self.seconds) / self.seconds
+        frames = len(self.beat)
+        frame = int(frames * cycle)
+        scale = self.beat[frame]
+        if self.selected:
+            scale *= 1.5
+        self.sprite.scale = scale
+
+    def isHit(self, x, y):
+        return ((self.sprite.y - self.sprite.image.anchor_y < y < self.sprite.y + self.sprite.image.anchor_y) and
+                (self.sprite.x - self.sprite.image.anchor_x < x < self.sprite.x + self.sprite.image.anchor_x))
 
 
 class Game(object):
 
     update_freq = 1 / 60.
 
-    def __init__(self):
+    def updateOffsets(self):
+        self.pxHorizontalShift = window.width // 2
+        self.pxVerticalShift = window.height // 2
+        self.pxHorizontalShift -= Heart.totalWidth * self.mapWidth // 2
+        self.pxVerticalShift -= Heart.totalHeight * self.mapHeight // 2
+
+    def __init__(self, level=0):
         self.game_is_over = False
         pyglet.clock.schedule_interval(self.update, self.update_freq)
-        self.heart = Heart()
+        self.start(level)
+
+    def start(self, level):
+        levels = [(4, 4),
+                  (4, 6),
+                  (6, 6),
+                  (6, 8),
+                  (8, 8)]
+        self.level = level
+        self.mapWidth, self.mapHeight = levels[level]
+        heart_styles = range(self.mapHeight * self.mapWidth / 2) * 2
+        random.shuffle(heart_styles)
+        self.selected_heart = None
+        self.hearts = []
+        for mapX in range(self.mapWidth):
+            for mapY in range(self.mapHeight):
+                self.hearts.append(Heart(mapX, mapY, heart_styles.pop()))
 
     def update(self, dt):
-        pass
+        self.time_in_level += dt
+        for heart in self.hearts:
+            heart.update(dt)
+        self.updateOffsets()
 
     def draw(self):
         with gl_matrix():
             if self.game_is_over:
                 pass
-            self.heart.draw()
+            with gl_matrix():
+                gl.glTranslatef(self.pxHorizontalShift, self.pxVerticalShift, 0)
+                for heart in self.hearts:
+                    heart.draw()
+
+    def on_mouse_release(self, x, y, button, modifiers):
+        if button == pyglet.window.mouse.LEFT:
+            pxRealX = x - self.pxHorizontalShift
+            pxRealY = y - self.pxVerticalShift
+            for heart in self.hearts:
+                if heart.isHit(pxRealX, pxRealY):
+                    heart.selected = True
+                    if (self.selected_heart is not None and
+                        heart.n == self.selected_heart.n and
+                        heart is not self.selected_heart):
+                        self.hearts.remove(heart)
+                        self.hearts.remove(self.selected_heart)
+                        self.selected_heart = None
+                    else:
+                        if self.selected_heart is not None:
+                            self.selected_heart.selected = False
+                        self.selected_heart = heart
 
 
 class Main(pyglet.window.Window):
@@ -96,6 +190,8 @@ class Main(pyglet.window.Window):
 
     def on_draw(self):
         self.clear()
+        if not self.game.hearts:
+            self.game.start(self.game.level + 1)
         self.game.draw()
         if self.fps_display:
             self.fps_display.draw()
@@ -115,6 +211,9 @@ class Main(pyglet.window.Window):
             self.fps_display.label.y = self.height - 50
             self.fps_display.label.x = self.width - 170
         super(Main, self).on_resize(width, height)
+
+    def on_mouse_release(self, *args):
+        self.game.on_mouse_release(*args)
 
 
 def main():
