@@ -14,7 +14,7 @@ from pyglet import gl
 DEBUG_VERSION = False
 
 
-log = logging.getLogger('dodo')
+log = logging.getLogger('hearts')
 
 if DEBUG_VERSION:
     log.setLevel(logging.DEBUG)
@@ -120,6 +120,7 @@ class Game(object):
         self.start(level)
 
     def start(self, level):
+        self.time_in_level = 0
         levels = [(4, 4),
                   (4, 6),
                   (6, 6),
@@ -176,7 +177,7 @@ class Main(pyglet.window.Window):
     def __init__(self):
         super(Main, self).__init__(width=1024, height=600,
                                    resizable=True,
-                                   caption='Memory game')
+                                   caption='Matching Hearts')
         self.set_minimum_size(320, 200) # does not work on linux with compiz
         self.set_fullscreen()
         self.set_mouse_visible(True)
