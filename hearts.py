@@ -10,6 +10,7 @@ import pyglet
 from pyglet.window import key
 from pyglet import gl
 
+from high_score import HighScores
 
 DEBUG_VERSION = False
 
@@ -119,15 +120,17 @@ class Game(object):
         pyglet.clock.schedule_interval(self.update, self.update_freq)
         self.start(level)
 
+    levels = [('Beginner', 4, 4),
+              ('Easy', 4, 6),
+              ('Normal', 6, 6),
+              ('Hard', 6, 8),
+              ('Expert', 8, 8)]
+    modes = [l[0] for l in levels]
+
     def start(self, level):
         self.time_in_level = 0
-        levels = [(4, 4),
-                  (4, 6),
-                  (6, 6),
-                  (6, 8),
-                  (8, 8)]
         self.level = level
-        self.mapWidth, self.mapHeight = levels[level]
+        self.mode, self.mapWidth, self.mapHeight = self.levels[level]
         heart_styles = range(self.mapHeight * self.mapWidth / 2) * 2
         random.shuffle(heart_styles)
         self.selected_heart = None
@@ -135,6 +138,10 @@ class Game(object):
         for mapX in range(self.mapWidth):
             for mapY in range(self.mapHeight):
                 self.hearts.append(Heart(mapX, mapY, heart_styles.pop()))
+
+    @property
+    def score(self):
+        return self.time_in_level
 
     def update(self, dt):
         self.time_in_level += dt
@@ -168,11 +175,18 @@ class Game(object):
                         if self.selected_heart is not None:
                             self.selected_heart.selected = False
                         self.selected_heart = heart
+            if not self.hearts:
+                return Main.SCORE
+        return Main.PLAYING
 
 
 class Main(pyglet.window.Window):
 
     fps_display = None
+
+    SCORE = object()
+    PLAYING = object()
+    START = object()
 
     def __init__(self):
         super(Main, self).__init__(width=1024, height=600,
@@ -184,16 +198,24 @@ class Main(pyglet.window.Window):
         self.set_icon(pyglet.image.load(
             os.path.join(pyglet.resource.location('MessageHeart.png').path, 'MessageHeart.png')))
         self.game = Game()
-
+        self.high_score = HighScores('hearts.score', self.game.modes)
+        self.state = self.SCORE
         self.fps_display = pyglet.clock.ClockDisplay()
         self.fps_display.label.y = self.height - 50
         self.fps_display.label.x = self.width - 170
 
     def on_draw(self):
         self.clear()
-        if not self.game.hearts:
-            self.game.start(self.game.level + 1)
-        self.game.draw()
+        if self.state is self.START:
+            self.game.start(self.game.level)
+            self.high_score.mode = self.game.mode
+            self.state = self.PLAYING
+        elif self.state is self.SCORE:
+            with gl_matrix():
+                gl.glTranslatef(window.width / 2, window.height // 2, 0)
+                self.high_score.draw()
+        else:
+            self.game.draw()
         if self.fps_display:
             self.fps_display.draw()
 
@@ -203,7 +225,16 @@ class Main(pyglet.window.Window):
     def on_key_press(self, symbol, modifiers):
         if symbol == key.ESCAPE:
             self.dispatch_event('on_close')
-
+        if symbol == key.F:
+            self.set_fullscreen(not self.fullscreen)
+        if symbol == key.PLUS or symbol == key.EQUAL:
+            self.game.start(min(self.game.level + 1, 4))
+            self.high_score.mode = self.game.mode
+        if symbol == key.MINUS:
+            self.game.start(max(self.game.level - 1, 0))
+            self.high_score.mode = self.game.mode
+        if symbol == key.ASCIITILDE:
+            self.game.hearts = []
         if symbol == key.F:
             self.set_fullscreen(not self.fullscreen)
 
@@ -214,8 +245,12 @@ class Main(pyglet.window.Window):
         super(Main, self).on_resize(width, height)
 
     def on_mouse_release(self, *args):
-        self.game.on_mouse_release(*args)
-
+        if self.state is self.SCORE:
+            self.state = self.START
+        else:
+            self.state = self.game.on_mouse_release(*args)
+            if self.state == self.SCORE:
+                self.high_score.set_score(self.game.score)
 
 def main():
     global window
