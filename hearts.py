@@ -224,7 +224,10 @@ class Main(pyglet.window.Window):
 
     def on_key_press(self, symbol, modifiers):
         if symbol == key.ESCAPE:
-            self.dispatch_event('on_close')
+            if self.state is not self.SCORE:
+                self.state = self.SCORE
+            else:
+                self.dispatch_event('on_close')
         if symbol == key.F:
             self.set_fullscreen(not self.fullscreen)
         if symbol == key.PLUS or symbol == key.EQUAL:
