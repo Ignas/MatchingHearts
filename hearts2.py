@@ -156,17 +156,45 @@ class Main(pyglet.window.Window):
         self.heart = Heart(random.randint(1, 12), random.randint(1, 12))
         self.left_ear = Ear('left.wav', 'left.png', 0, 13, self.heart)
         self.right_ear = Ear('right.wav', 'right.png', 13, 0, self.heart)
-        pyglet.clock.schedule_interval(self.update_flashes, self.update_freq)
+        pyglet.clock.schedule_interval(self.update, self.update_freq)
         self.fps_display = pyglet.clock.ClockDisplay()
         self.fps_display.label.y = self.height - 50
         self.fps_display.label.x = self.width - 170
+        self.tries = 5
+        self.score_labels = [
+            self.makeLabel('-' * 20) for x in range(8)
+            ]
+        self.score_labels[0].text = 'Distances:'
+        self.score_labels[6].text = 'Total:'
+        self.previous_scores = []
+        self.start()
+
+    def start(self):
+        self.left_ear.mapX, self.left_ear.mapY = 0, 13
+        self.right_ear.mapX, self.right_ear.mapY = 13, 0
+        self.heart.mapX, self.heart.mapY = random.randint(1, 12), random.randint(1, 12)
+        self.left_ear.computeVolume()
+        self.right_ear.computeVolume()
+        self.scores = []
+
+    def makeLabel(self, text):
+        label = pyglet.text.Label(text, x=0, y=0, **font)
+        label.height = 22
+        label.width = len(text) * 20
+        label.x -= label.width // 2
+        return label
 
     def on_draw(self):
         self.clear()
         self.board.draw()
         self.left_ear.draw()
         self.right_ear.draw()
-        self.draw_flashes()
+
+        for n, label in enumerate(self.score_labels):
+            label.x = 0
+            label.y = window.height - (n + 2) * 30
+        for label in self.score_labels:
+            label.draw()
         # self.game.draw()
         if self.fps_display:
             self.fps_display.draw()
@@ -182,10 +210,7 @@ class Main(pyglet.window.Window):
         elif button == pyglet.window.mouse.MIDDLE:
             mapX, mapY = mapMapCoords(x, y)
             distance = math.hypot(mapX - self.heart.mapX, mapY - self.heart.mapY)
-            self.flash_text("Distance: %.2f" % round(distance, 2),
-                            window.width // 2,
-                            window.height // 2,
-                            1)
+            self.scores.append(round(distance, 2))
             self.heart.mapX, self.heart.mapY = random.randint(1, 12), random.randint(1, 12)
             self.left_ear.computeVolume()
             self.right_ear.computeVolume()
@@ -204,25 +229,22 @@ class Main(pyglet.window.Window):
         super(Main, self).on_resize(width, height)
 
 
-    flashes = []
-    def flash(self, flash, t):
-        self.flashes.append((t, flash))
+    def update(self, dt):
+        for x in [1, 2, 3, 4, 5, 7]:
+            self.score_labels[x].text = '--.--'.rjust(15)
 
-    def draw_flashes(self):
-        for t, flash in self.flashes:
-            flash.draw()
+        if len(self.scores) == 5:
+            self.previous_scores = self.scores
+            self.start()
 
-    def update_flashes(self, dt):
-        self.flashes = [(t - dt, flash)
-                        for (t, flash) in self.flashes
-                        if t - dt > 0]
-
-    def flash_text(self, text, x, y, t):
-        label = pyglet.text.Label(text, x=x, y=y, **font)
-        label.height = 50
-        label.width = len(text) * 40
-        label.x = x - (label.width // 4)
-        self.flash(label, t)
+        if self.scores:
+            scores = self.scores
+        else:
+            scores = self.previous_scores
+        for n, score in enumerate(scores):
+            self.score_labels[n+1].text = ('% 5.2f' % score).rjust(15)
+        if len(scores) == 5:
+            self.score_labels[7].text = ('% 5.2f' % sum(scores)).rjust(15)
 
 
 def main():
