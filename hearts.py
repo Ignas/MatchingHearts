@@ -199,7 +199,7 @@ class Main(pyglet.window.Window):
             os.path.join(pyglet.resource.location('MessageHeart.png').path, 'MessageHeart.png')))
         self.game = Game()
         self.high_score = HighScores('hearts.score', self.game.modes)
-        self.state = self.SCORE
+        self.setState(self.SCORE)
         self.fps_display = pyglet.clock.ClockDisplay()
         self.fps_display.label.y = self.height - 50
         self.fps_display.label.x = self.width - 170
@@ -209,7 +209,7 @@ class Main(pyglet.window.Window):
         if self.state is self.START:
             self.game.start(self.game.level)
             self.high_score.mode = self.game.mode
-            self.state = self.PLAYING
+            self.setState(self.PLAYING)
         elif self.state is self.SCORE:
             with gl_matrix():
                 gl.glTranslatef(window.width / 2, window.height // 2, 0)
@@ -225,7 +225,7 @@ class Main(pyglet.window.Window):
     def on_key_press(self, symbol, modifiers):
         if symbol == key.ESCAPE:
             if self.state is not self.SCORE:
-                self.state = self.SCORE
+                self.setState(self.SCORE)
             else:
                 self.dispatch_event('on_close')
         if symbol == key.F:
@@ -249,13 +249,40 @@ class Main(pyglet.window.Window):
             self.fps_display.label.x = self.width - 170
         super(Main, self).on_resize(width, height)
 
+    def setState(self, state):
+        if state is self.SCORE and self.high_score.current_score:
+            self.focus = self.high_score.widget
+            self.focus.caret.visible = True
+        else:
+            self.focus = None
+        self.state = state
+
     def on_mouse_release(self, *args):
         if self.state is self.SCORE:
-            self.state = self.START
+            self.setState(self.START)
         else:
-            self.state = self.game.on_mouse_release(*args)
-            if self.state == self.SCORE:
+            state = self.game.on_mouse_release(*args)
+            if state is self.SCORE:
                 self.high_score.set_score(self.game.score)
+            self.setState(state)
+
+    def on_text(self, text):
+        if self.focus:
+            if text in ['\r', '\n']:
+                self.high_score.saveScore(self.focus.document.text)
+                self.focus.document.text = ''
+                self.focus = None
+                return
+            else:
+                self.focus.caret.on_text(text)
+
+    def on_text_motion(self, motion):
+        if self.focus:
+            self.focus.caret.on_text_motion(motion)
+
+    def on_text_motion_select(self, motion):
+        if self.focus:
+            self.focus.caret.on_text_motion_select(motion)
 
 def main():
     global window

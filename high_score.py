@@ -1,8 +1,41 @@
 import pickle
 import pyglet
 
-font = dict(font_name='Andale Mono',
+FONT = dict(font_name='Andale Mono',
             font_size=20)
+
+class Rectangle(object):
+    '''Draws a rectangle into a batch.'''
+    def __init__(self, x1, y1, x2, y2, batch):
+        self.vertex_list = batch.add(4, pyglet.gl.GL_QUADS, None,
+            ('v2i', [x1, y1, x2, y1, x2, y2, x1, y2]),
+            ('c4B', [20, 20, 20, 255] * 4)
+        )
+
+class TextWidget(object):
+    def __init__(self, text, x, y, width, batch):
+        self.document = pyglet.text.document.UnformattedDocument(text)
+        self.document.set_style(0, len(self.document.text),
+            dict(color=(255, 255, 255, 255), **FONT)
+        )
+        font = self.document.get_font()
+        height = font.ascent - font.descent
+
+        self.layout = pyglet.text.layout.IncrementalTextLayout(
+            self.document, width, height, multiline=False, batch=batch)
+        self.caret = pyglet.text.caret.Caret(self.layout)
+
+        self.layout.x = x
+        self.layout.y = y
+
+        # Rectangular outline
+        pad = 2
+        self.rectangle = Rectangle(x - pad, y - pad,
+                                   x + width + pad, y + height + pad, batch)
+
+    def hit_test(self, x, y):
+        return (0 < x - self.layout.x < self.layout.width and
+                0 < y - self.layout.y < self.layout.height)
 
 
 class HighScores(object):
@@ -21,16 +54,24 @@ class HighScores(object):
         self.save()
         self.modes = modes
         self.mode = self.modes[0]
-        text = "Click to start".center(20)
-        self.instructions = self.makeLabel(text)
+        self.instructions = self.makeLabel("Click to start".center(20))
         self.instructions.x -= self.instructions.width // 2
         self.instructions.y = -300
+
+        self.enter_score = self.makeLabel("Enter your name:".center(20))
+        self.enter_score.x -= self.enter_score.width // 2
+        self.enter_score.y = -220
+
         self.score_labels = []
         self.generate_scores()
         self.current_score = None
 
+        self.batch = pyglet.graphics.Batch()
+        self.widget = TextWidget('', -200, -260, 300, self.batch)
+        self.pushed = False
+
     def makeLabel(self, text):
-        label = pyglet.text.Label(text, x=0, y=0, **font)
+        label = pyglet.text.Label(text, x=0, y=0, **FONT)
         label.height = 50
         label.width = len(text) * 20
         return label
@@ -73,10 +114,15 @@ class HighScores(object):
             return False
         return True
 
-    def draw(self):
+    def saveScore(self, name):
         if self.current_score is not None:
-            self.add_score('Ignas', self.current_score)
+            self.add_score(name, self.current_score)
             self.current_score = None
+
+    def draw(self):
         self.instructions.draw()
+        if self.current_score:
+            self.batch.draw()
+            self.enter_score.draw()
         for label in self.score_labels:
             label.draw()
