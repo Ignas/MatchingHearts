@@ -55,11 +55,9 @@ class HighScores(object):
         self.modes = modes
         self.mode = self.modes[0]
         self.instructions = self.makeLabel("Click to start".center(20))
-        self.instructions.x -= self.instructions.width // 2
         self.instructions.y = -300
 
         self.enter_score = self.makeLabel("Enter your name:".center(20))
-        self.enter_score.x -= self.enter_score.width // 2
         self.enter_score.y = -220
 
         self.score_labels = []
@@ -74,6 +72,7 @@ class HighScores(object):
         label = pyglet.text.Label(text, x=0, y=0, **FONT)
         label.height = 50
         label.width = len(text) * 20
+        label.x -= label.width // 2
         return label
 
     def generate_scores(self):
@@ -87,7 +86,6 @@ class HighScores(object):
         top_y = 200
         for label in self.score_labels:
             label.y = top_y
-            label.x -= label.width // 2
             top_y -= 30
 
     def set_score(self, score):
