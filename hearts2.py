@@ -128,6 +128,7 @@ class Ear(object):
 
 
 def computeVolume(distance):
+    return 1.0 / (distance ** 2)
     return (1/900.0 * (distance ** 2) - (13/180.0 * distance) + 241/225.0)
 
 
